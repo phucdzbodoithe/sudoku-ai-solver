@@ -4,107 +4,152 @@
     <meta charset="UTF-8">
     <title>Sudoku AI Solver</title>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex; flex-direction: column; align-items: center;
-            background-color: #f0f2f5; padding: 20px;
-        }
-        h1 { color: #2c3e50; margin-bottom: 10px; }
-        
-        .controls { margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
-        select {
-            padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #bdc3c7;
-            background-color: white; cursor: pointer;
-        }
-
-        .sudoku-container { border: 4px solid #34495e; display: inline-block; position: relative; }
-        .grid { display: grid; grid-template-columns: repeat(9, 50px); grid-template-rows: repeat(9, 50px); }
-        .grid input {
-            width: 100%; height: 100%; text-align: center; font-size: 24px;
-            border: 1px solid #bdc3c7; outline: none; box-sizing: border-box; color: #2c3e50;
-        }
-        .grid input:focus { background-color: #e8f8f5; font-weight: bold; }
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background: #f0f2f5; padding: 20px; }
+        h1 { color: #2c3e50; }
+        .grid { display: grid; grid-template-columns: repeat(9, 50px); border: 4px solid #34495e; }
+        .grid input { width: 50px; height: 50px; text-align: center; font-size: 20px; border: 1px solid #ccc; outline: none; }
         
         /* Kẻ lưới đậm 3x3 */
         .grid input:nth-child(3n) { border-right: 3px solid #34495e; }
-        .grid input:nth-child(9n) { border-right: 1px solid #bdc3c7; }
-        .grid input:nth-child(n+19):nth-child(-n+27),
-        .grid input:nth-child(n+46):nth-child(-n+54) { border-bottom: 3px solid #34495e; }
+        .grid input:nth-child(9n) { border-right: 1px solid #ccc; }
+        .grid input:nth-child(n+19):nth-child(-n+27), .grid input:nth-child(n+46):nth-child(-n+54) { border-bottom: 3px solid #34495e; }
 
-        .buttons { margin-top: 20px; }
-        button {
-            padding: 12px 25px; font-size: 16px; cursor: pointer; border: none; border-radius: 8px;
-            color: white; margin: 0 5px; font-weight: bold; transition: transform 0.1s;
-        }
-        button:active { transform: scale(0.95); }
-        .btn-gen { background-color: #2980b9; }
-        .btn-solve { background-color: #27ae60; }
-        .btn-clear { background-color: #e67e22; } 
+        /* MÀU SẮC TRẠNG THÁI */
+        .readonly { background: #ecf0f1; font-weight: bold; color: #2c3e50; }
+        .solved { color: #27ae60 !important; font-weight: bold; } /* Màu xanh: AI giải */
+        .wrong { background-color: #ffcccc; color: red; font-weight: bold; } /* Màu đỏ: Lỗi sai */
 
-        /* Phần hiển thị trạng thái & thời gian */
-        .status-bar {
-            margin-top: 15px;
-            font-size: 18px;
-            font-weight: 500;
-            color: #34495e;
-            min-height: 24px; /* Giữ chỗ để không bị nhảy layout */
-        }
-        .time-highlight { color: #e74c3c; font-weight: bold; }
+        .controls, .buttons { margin: 15px 0; display: flex; gap: 10px; }
+        button { padding: 10px 20px; cursor: pointer; border-radius: 5px; border: none; color: white; font-weight: bold; }
+        .btn-gen { background: #2980b9; }
+        .btn-solve { background: #27ae60; }
+        .btn-check { background: #e74c3c; } /* Nút đỏ cho chức năng check */
+        .btn-clear { background: #e67e22; }
+        .status { margin-top: 10px; font-weight: bold; color: #34495e; }
     </style>
 </head>
 <body>
-
     <h1>Đồ Án AI: Sudoku Solver</h1>
     
     <div class="controls">
-        <label for="difficulty">Độ khó:</label>
-        <select id="difficulty">
-            <option value="easy">Dễ (Easy)</option>
-            <option value="medium" selected>Trung Bình (Medium)</option>
-            <option value="hard">Khó (Hard)</option>
-            <option value="expert">Siêu Khó (Expert)</option>
+        <select id="level">
+            <option value="easy">Dễ</option>
+            <option value="medium" selected>Trung Bình</option>
+            <option value="hard">Khó</option>
+            <option value="expert">Siêu Khó</option>
         </select>
-        <button class="btn-gen" onclick="generatePuzzle()">Sinh Đề Mới</button>
+        <button class="btn-gen" onclick="gen()">Sinh Đề Mới</button>
     </div>
 
-    <div class="sudoku-container">
-        <div class="grid" id="sudoku-grid"></div>
-    </div>
+    <div class="grid" id="grid"></div>
 
     <div class="buttons">
-        <button class="btn-clear" onclick="clearGrid()">Nhập Đề / Xóa</button>
-        <button class="btn-solve" onclick="solveSudoku()">AI Giải Ngay</button>
+        <button class="btn-clear" onclick="clearBoard()">Nhập Đề / Xóa</button>
+        <button class="btn-check" onclick="checkError()">Kiểm Tra Lỗi</button>
+        <button class="btn-solve" onclick="solve()">AI Giải Ngay</button>
     </div>
-
-    <div class="status-bar" id="status-text">Sẵn sàng...</div>
+    <div class="status" id="status">Sẵn sàng...</div>
 
     <script>
-        const gridContainer = document.getElementById('sudoku-grid');
-        const statusText = document.getElementById('status-text');
+        const grid = document.getElementById('grid');
+        const status = document.getElementById('status');
         const inputs = [];
+        let solution = []; // Biến chứa đáp án chuẩn
 
-        // Tạo 81 ô
-        for (let i = 0; i < 81; i++) {
-            const input = document.createElement('input');
-            input.type = 'text'; input.maxLength = 1;
-            input.addEventListener('input', function(e) {
-                this.value = this.value.replace(/[^1-9]/g, '');
-                this.style.color = "#2c3e50"; 
-                this.style.fontWeight = "bold";
-                statusText.innerText = "Đang nhập đề bài...";
-            });
-            gridContainer.appendChild(input);
-            inputs.push(input);
+        // Tạo lưới 81 ô
+        for(let i=0; i<81; i++) {
+            let inp = document.createElement('input');
+            inp.oninput = function() { 
+                this.value = this.value.replace(/[^1-9]/g,''); 
+                this.classList.remove('wrong'); // Nhập lại thì bỏ màu đỏ đi
+            };
+            grid.appendChild(inp);
+            inputs.push(inp);
         }
 
-        async function generatePuzzle() {
-            clearGrid();
-            statusText.innerText = "Đang sinh đề bài...";
-            const level = document.getElementById('difficulty').value;
-            try {
-                const response = await fetch(`/generate?level=${level}`);
-                const data = await response.json();
-                if (data.status === 'success') {
+        async function gen() {
+            clearBoard();
+            status.innerText = "Đang tải đề...";
+            let lv = document.getElementById('level').value;
+            let res = await fetch(`/generate?level=${lv}`);
+            let data = await res.json();
+            
+            // Lưu đáp án vào biến (để dùng khi check lỗi)
+            solution = data.solution.flat();
+            
+            let board = data.board.flat();
+            board.forEach((val, i) => {
+                if(val !== 0) {
+                    inputs[i].value = val;
+                    inputs[i].readOnly = true;
+                    inputs[i].classList.add('readonly');
+                }
+            });
+            status.innerText = "Đã sinh đề mới!";
+        }
+
+        // --- HÀM MỚI: KIỂM TRA LỖI ---
+        function checkError() {
+            if (solution.length === 0) {
+                alert("Bạn chưa sinh đề bài!");
+                return;
+            }
+            let errorCount = 0;
+            inputs.forEach((inp, i) => {
+                // Chỉ kiểm tra những ô người dùng tự nhập (có giá trị và không bị khóa)
+                if (inp.value !== "" && !inp.readOnly) {
+                    // So sánh với đáp án chuẩn
+                    if (parseInt(inp.value) !== solution[i]) {
+                        inp.classList.add('wrong'); // Tô đỏ
+                        errorCount++;
+                    }
+                }
+            });
+
+            if (errorCount > 0) {
+                status.innerText = `Phát hiện ${errorCount} ô sai! (Màu đỏ)`;
+            } else {
+                status.innerText = "Chưa phát hiện lỗi sai nào!";
+            }
+        }
+
+        async function solve() {
+            let board = [], row = [];
+            inputs.forEach((inp, i) => {
+                row.push(inp.value ? parseInt(inp.value) : 0);
+                if((i+1)%9===0) { board.push(row); row=[]; }
+            });
+            
+            status.innerText = "AI đang suy nghĩ...";
+            let res = await fetch('/solve', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({board})
+            });
+            let data = await res.json();
+
+            if(data.status === 'success') {
+                data.board.flat().forEach((val, i) => {
+                    if(!inputs[i].value) {
+                        inputs[i].value = val;
+                        inputs[i].classList.add('solved');
+                    }
+                });
+                status.innerText = "AI đã giải xong!";
+            } else {
+                status.innerText = "Không tìm thấy lời giải!";
+            }
+        }
+
+        function clearBoard() {
+            inputs.forEach(inp => {
+                inp.value = ''; inp.readOnly = false; inp.className = '';
+            });
+            solution = []; // Xóa đáp án cũ
+            status.innerText = "Sẵn sàng...";
+        }
+    </script>
+</body>
+</html>
                     let flatBoard = data.board.flat();
                     for (let i = 0; i < 81; i++) {
                         let val = flatBoard[i];
@@ -185,3 +230,4 @@
     </script>
 </body>
 </html>
+
