@@ -7,34 +7,49 @@
         body { font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; background: #f0f2f5; padding: 20px; }
         h1 { color: #2c3e50; margin-bottom: 10px; }
         
-        /* CSS Lưới Sudoku */
+        /* --- CSS LƯỚI SUDOKU --- */
         .grid { 
             display: grid; 
+            /* Quy định cứng kích thước 9 cột, mỗi cột 50px */
             grid-template-columns: repeat(9, 50px); 
-            border: 4px solid #000; /* Viền ngoài cùng màu đen đậm */
+            grid-template-rows: repeat(9, 50px);
+            border: 4px solid #000; /* Viền bao ngoài cùng màu đen đậm */
             background: white; 
         }
+        
         .grid input { 
-            width: 50px; height: 50px; text-align: center; font-size: 22px; 
-            border: 1px solid #bdc3c7; outline: none; padding: 0; color: #2c3e50;
+            width: 100%; height: 100%; 
+            text-align: center; font-size: 22px; 
+            outline: none; padding: 0; color: #2c3e50;
+            
+            /* QUAN TRỌNG: Giúp viền không làm vỡ kích thước ô */
+            box-sizing: border-box; 
+            border: 1px solid #bdc3c7; /* Viền mờ mặc định */
         }
         
         /* --- KẺ VIỀN ĐEN ĐẬM CHIA KHỐI 3x3 --- */
-        /* Kẻ vạch dọc đậm ở cột 3 và 6 */
-        .grid input:nth-child(3n) { border-right: 3px solid #000; }
-        .grid input:nth-child(9n) { border-right: 1px solid #bdc3c7; } /* Trừ cột cuối cùng ra */
         
-        /* Kẻ vạch ngang đậm ở hàng 3 và 6 */
-        /* Hàng 3 kết thúc ở ô 27, Hàng 6 kết thúc ở ô 54 */
+        /* 1. Kẻ vạch DỌC màu đen ở cột 3, 6 */
+        /* Cứ mỗi 3 ô thì kẻ viền phải đậm */
+        .grid input:nth-child(3n) { 
+            border-right: 3px solid #000; 
+        }
+        /* Nhưng riêng cột cuối cùng (cột 9) thì trả lại viền mờ (để không bị trùng với viền khung) */
+        .grid input:nth-child(9n) { 
+            border-right: 1px solid #bdc3c7; 
+        }
+        
+        /* 2. Kẻ vạch NGANG màu đen ở hàng 3, 6 */
+        /* Các ô từ 19-27 (Hàng 3) và 46-54 (Hàng 6) sẽ có viền dưới đậm */
         .grid input:nth-child(n+19):nth-child(-n+27), 
         .grid input:nth-child(n+46):nth-child(-n+54) { 
             border-bottom: 3px solid #000; 
         }
 
-        /* Màu sắc hiển thị */
+        /* --- MÀU SẮC TRẠNG THÁI --- */
         .readonly { background: #ecf0f1; font-weight: bold; color: #2c3e50; }
-        .solved { color: #27ae60 !important; font-weight: bold; } 
-        .wrong { background-color: #ffcccc !important; color: red !important; font-weight: bold; } /* Màu đỏ khi sai */
+        .solved { color: #27ae60 !important; font-weight: bold; } /* Màu xanh: AI giải */
+        .wrong { background-color: #ffcccc !important; color: red !important; font-weight: bold; } /* Màu đỏ: Lỗi */
         
         /* Nút bấm */
         .controls, .buttons { margin: 15px 0; display: flex; gap: 10px; }
@@ -108,36 +123,31 @@
             } catch (e) { status.innerText = "Lỗi kết nối!"; }
         }
 
-        // 3. HÀM CHECK LỖI THÔNG MINH (Sửa lại logic này)
-        // Thay vì so với đáp án, ta kiểm tra xem số nhập vào có bị trùng lặp trên bàn cờ không
+        // 3. Hàm Check Lỗi Thông Minh (Check trùng)
         function checkError() {
             let errorCount = 0;
-            // Xóa màu đỏ cũ
             inputs.forEach(inp => inp.classList.remove('wrong'));
 
-            // Helper lấy giá trị ô (nếu rỗng thì trả về 0)
             const getVal = (idx) => inputs[idx].value === "" ? 0 : parseInt(inputs[idx].value);
 
             for (let i = 0; i < 81; i++) {
                 let currentVal = getVal(i);
-                if (currentVal === 0) continue; // Bỏ qua ô trống
+                if (currentVal === 0) continue;
 
-                let r = Math.floor(i / 9); // Hàng
-                let c = i % 9;             // Cột
+                let r = Math.floor(i / 9);
+                let c = i % 9;
                 let isDuplicate = false;
 
-                // Check Hàng (Có số nào khác trên cùng hàng trùng không?)
+                // Check Hàng
                 for (let k = 0; k < 9; k++) {
                     let idx = r * 9 + k;
                     if (idx !== i && getVal(idx) === currentVal) isDuplicate = true;
                 }
-
-                // Check Cột (Có số nào khác trên cùng cột trùng không?)
+                // Check Cột
                 for (let k = 0; k < 9; k++) {
                     let idx = k * 9 + c;
                     if (idx !== i && getVal(idx) === currentVal) isDuplicate = true;
                 }
-
                 // Check Khối 3x3
                 let startR = Math.floor(r / 3) * 3;
                 let startC = Math.floor(c / 3) * 3;
@@ -148,7 +158,6 @@
                     }
                 }
 
-                // Nếu trùng -> Tô đỏ
                 if (isDuplicate) {
                     inputs[i].classList.add('wrong');
                     errorCount++;
