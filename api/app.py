@@ -3,11 +3,13 @@ import random, copy
 
 app = Flask(__name__)
 
-# Cấu hình độ khó
+# Cấu hình số ô bị đục lỗ
 LEVELS = {'easy': 30, 'medium': 45, 'hard': 55, 'expert': 60}
 
-# --- LOGIC XỬ LÝ ---
+# --- THUẬT TOÁN (Chuẩn theo ý tưởng nhóm) ---
+
 def is_valid(board, r, c, n):
+    """Kiểm tra hợp lệ để dùng cho quay lui"""
     for i in range(9):
         if board[r][i] == n or board[i][c] == n: return False
     sr, sc = 3 * (r // 3), 3 * (c // 3)
@@ -17,6 +19,7 @@ def is_valid(board, r, c, n):
     return True
 
 def solve(board):
+    """Thuật toán Quay lui (Backtracking) để điền đầy bảng"""
     for r in range(9):
         for c in range(9):
             if board[r][c] == 0:
@@ -28,19 +31,12 @@ def solve(board):
                 return False
     return True
 
-def validate(board):
-    for r in range(9):
-        for c in range(9):
-            if board[r][c] != 0:
-                n = board[r][c]
-                board[r][c] = 0
-                if not is_valid(board, r, c, n): return False
-                board[r][c] = n
-    return True
-
 def create_puzzle(level):
+    # B1: Tạo bảng rỗng
     board = [[0]*9 for _ in range(9)]
-    # Tạo đề bài ngẫu nhiên
+    
+    # B2: "Điền 1 số random từ 1-9 vào ô" (Gieo hạt giống)
+    # Mình gieo 3 khối chéo để đảm bảo tính ngẫu nhiên cao nhất
     for k in range(0, 9, 3):
         nums = list(range(1, 10))
         random.shuffle(nums)
@@ -48,17 +44,21 @@ def create_puzzle(level):
             for j in range(3):
                 board[k+i][k+j] = nums.pop()
     
+    # B3: "Chạy 1 phát là ra matrix kq thoả mãn"
     solve(board)
-    # LƯU ĐÁP ÁN LẠI TRƯỚC KHI ĐỤC LỖ
-    solution = copy.deepcopy(board)
     
-    # Đục lỗ
+    # B4: "Lưu matrix này vào 1 biến" (Quan trọng!)
+    solution = copy.deepcopy(board) 
+    
+    # B5: "Đi đục lỗ cái kq có sẵn"
     holes = LEVELS.get(level, 45)
     while holes > 0:
         r, c = random.randint(0, 8), random.randint(0, 8)
         if board[r][c] != 0:
             board[r][c] = 0
             holes -= 1
+            
+    # Trả về cả Bảng chơi (board) và Đáp án gốc (solution)
     return board, solution
 
 # --- SERVER ---
@@ -67,15 +67,16 @@ def home(): return render_template('index.html')
 
 @app.route('/solve', methods=['POST'])
 def api_solve():
+    # Phần AI giải hộ: Nhận bảng về và giải lại từ đầu
     board = request.json.get('board')
-    if not validate(board): return jsonify({'status': 'fail'})
-    if solve(board): return jsonify({'status': 'success', 'board': board})
+    # Gọi hàm solve để điền nốt các ô trống
+    if solve(board): 
+        return jsonify({'status': 'success', 'board': board})
     return jsonify({'status': 'fail'})
 
 @app.route('/generate')
 def api_gen():
     level = request.args.get('level', 'medium')
-    # Lấy cả đề bài và đáp án
     board, solution = create_puzzle(level)
     return jsonify({'status': 'success', 'board': board, 'solution': solution})
 
