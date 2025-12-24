@@ -101,7 +101,7 @@
         const grid = document.getElementById('grid');
         const status = document.getElementById('status');
         const inputs = [];
-        let solution = []; // Biến lưu đáp án gốc
+        let solution = []; // Biến lưu đáp án gốc (Game Mode)
 
         // 1. Tạo bàn cờ
         for(let i=0; i<81; i++) {
@@ -124,7 +124,7 @@
                 let res = await fetch(`/generate?level=${level}`);
                 let data = await res.json();
                 
-                // Lưu đáp án gốc vào biến
+                // Lưu đáp án gốc
                 solution = data.solution.flat();
                 
                 let board = data.board.flat();
@@ -139,14 +139,14 @@
             } catch (e) { status.innerText = "Lỗi kết nối!"; }
         }
 
-        // 3. Kiểm tra lỗi (So sánh với đáp án gốc)
+        // 3. Kiểm tra lỗi
         function checkAnswer() {
-            if (solution.length === 0) return alert("Chưa có đề bài!");
+            // Nếu tự nhập đề thì không check được (vì không có đáp án gốc)
+            if (solution.length === 0) return alert("Chức năng Check chỉ dùng được khi bạn bấm 'Sinh Đề Mới'!");
             
             let errCount = 0;
             inputs.forEach((inp, i) => {
                 if(!inp.readOnly && inp.value !== "") {
-                    // Nếu số nhập khác số trong đáp án gốc -> Sai
                     if(parseInt(inp.value) !== solution[i]) {
                         inp.classList.add('wrong');
                         errCount++;
@@ -161,35 +161,58 @@
             }
         }
 
-        // 4. AI GIẢI NGAY (SỬA ĐỔI QUAN TRỌNG)
-        // Thay vì hỏi Server, ta điền luôn đáp án gốc vào -> Bao chuẩn
-        function solve() {
-            if (solution.length === 0) return alert("Chưa có đề bài để giải!");
-            
-            // Điền trực tiếp từ biến solution
+        // 4. AI GIẢI (NÂNG CẤP: Hỗ trợ cả Game Mode và Solver Mode)
+        async function solve() {
+            // TRƯỜNG HỢP 1: Đang chơi Game (Có đáp án gốc) -> Điền luôn cho nhanh
+            if (solution.length > 0) {
+                inputs.forEach((inp, i) => {
+                    inp.value = solution[i];
+                    inp.classList.remove('wrong');
+                    if(!inp.readOnly) inp.classList.add('solved');
+                });
+                status.innerText = "AI đã giải xong (theo đáp án gốc)!";
+                return;
+            }
+
+            // TRƯỜNG HỢP 2: Tự nhập đề (Chưa có đáp án) -> Gọi Server giải
+            let board = [], row = [];
             inputs.forEach((inp, i) => {
-                inp.value = solution[i]; // Điền số chuẩn
-                inp.classList.remove('wrong'); // Xóa đỏ (nếu có)
-                
-                // Tô xanh các ô vừa được giải
-                if(!inp.readOnly) {
-                    inp.classList.add('solved');
-                }
+                let val = inp.value ? parseInt(inp.value) : 0;
+                row.push(val);
+                if((i+1)%9===0) { board.push(row); row=[]; }
             });
             
-            status.innerText = "AI đã giải xong (theo đáp án gốc)!";
+            status.innerText = "AI đang tính toán (Chế độ tự nhập)...";
+            try {
+                let res = await fetch('/solve', {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({board})
+                });
+                let data = await res.json();
+
+                if(data.status === 'success') {
+                    data.board.flat().forEach((val, i) => {
+                        inputs[i].value = val;
+                        inputs[i].classList.add('solved');
+                    });
+                    status.innerText = "AI đã tìm ra lời giải!";
+                } else {
+                    status.innerText = "Vô nghiệm! Bạn kiểm tra lại đề bài xem.";
+                }
+            } catch (e) { status.innerText = "Lỗi kết nối!"; }
         }
 
         function clearBoard() {
             inputs.forEach(inp => {
                 inp.value = ''; inp.readOnly = false; inp.className = '';
             });
-            solution = [];
+            solution = []; // Xóa đáp án cũ
             status.innerText = "Sẵn sàng...";
         }
     </script>
 </body>
 </html>
+
 
 
 
