@@ -101,7 +101,7 @@
         const grid = document.getElementById('grid');
         const status = document.getElementById('status');
         const inputs = [];
-        let solution = []; // Biến này lưu "Matrix KQ" như bạn Long yêu cầu
+        let solution = []; // Biến lưu đáp án gốc
 
         // 1. Tạo bàn cờ
         for(let i=0; i<81; i++) {
@@ -115,7 +115,7 @@
             inputs.push(inp);
         }
 
-        // 2. Sinh đề và Lưu đáp án
+        // 2. Sinh đề
         async function gen() {
             clearBoard();
             status.innerText = "Đang sinh đề...";
@@ -124,10 +124,9 @@
                 let res = await fetch(`/generate?level=${level}`);
                 let data = await res.json();
                 
-                // LƯU MATRIX KẾT QUẢ VÀO BIẾN (Theo đúng yêu cầu ảnh 3800.jpg)
+                // Lưu đáp án gốc vào biến
                 solution = data.solution.flat();
                 
-                // Hiển thị đề bài
                 let board = data.board.flat();
                 board.forEach((val, i) => {
                     if(val !== 0) {
@@ -140,16 +139,14 @@
             } catch (e) { status.innerText = "Lỗi kết nối!"; }
         }
 
-        // 3. HÀM CHECK (Theo đúng yêu cầu ảnh 3802.jpg)
-        // "Chỉ cần đối chiếu vs matrix kq đã sao lưu... Chứ kh cần kq 9 ô quanh"
+        // 3. Kiểm tra lỗi (So sánh với đáp án gốc)
         function checkAnswer() {
             if (solution.length === 0) return alert("Chưa có đề bài!");
             
             let errCount = 0;
             inputs.forEach((inp, i) => {
-                // Chỉ check ô người dùng nhập
                 if(!inp.readOnly && inp.value !== "") {
-                    // SO SÁNH THẲNG VỚI ĐÁP ÁN
+                    // Nếu số nhập khác số trong đáp án gốc -> Sai
                     if(parseInt(inp.value) !== solution[i]) {
                         inp.classList.add('wrong');
                         errCount++;
@@ -164,33 +161,23 @@
             }
         }
 
-        // 4. AI Giải (Fix lỗi: Bỏ qua ô người dùng nhập sai để luôn giải ra)
-        async function solve() {
-            let board = [], row = [];
+        // 4. AI GIẢI NGAY (SỬA ĐỔI QUAN TRỌNG)
+        // Thay vì hỏi Server, ta điền luôn đáp án gốc vào -> Bao chuẩn
+        function solve() {
+            if (solution.length === 0) return alert("Chưa có đề bài để giải!");
+            
+            // Điền trực tiếp từ biến solution
             inputs.forEach((inp, i) => {
-                // Nếu là ô nhập tay -> Coi như bằng 0 để AI tự tính lại
-                let val = inp.readOnly ? parseInt(inp.value) : 0;
-                row.push(val);
-                if((i+1)%9===0) { board.push(row); row=[]; }
+                inp.value = solution[i]; // Điền số chuẩn
+                inp.classList.remove('wrong'); // Xóa đỏ (nếu có)
+                
+                // Tô xanh các ô vừa được giải
+                if(!inp.readOnly) {
+                    inp.classList.add('solved');
+                }
             });
             
-            status.innerText = "AI đang suy nghĩ...";
-            try {
-                let res = await fetch('/solve', {
-                    method:'POST', headers:{'Content-Type':'application/json'},
-                    body: JSON.stringify({board})
-                });
-                let data = await res.json();
-
-                if(data.status === 'success') {
-                    data.board.flat().forEach((val, i) => {
-                        inputs[i].value = val;
-                        inputs[i].classList.remove('wrong');
-                        if(!inputs[i].readOnly) inputs[i].classList.add('solved');
-                    });
-                    status.innerText = "AI đã giải xong!";
-                } else { status.innerText = "Không tìm thấy lời giải!"; }
-            } catch (e) { status.innerText = "Lỗi kết nối!"; }
+            status.innerText = "AI đã giải xong (theo đáp án gốc)!";
         }
 
         function clearBoard() {
@@ -203,5 +190,6 @@
     </script>
 </body>
 </html>
+
 
 
