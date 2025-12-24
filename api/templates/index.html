@@ -2,61 +2,45 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Sudoku AI Solver</title>
+    <title>Sudoku Group Project</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; background: #f0f2f5; padding: 20px; }
         h1 { color: #2c3e50; margin-bottom: 10px; }
         
-        /* --- CSS LƯỚI SUDOKU --- */
+        /* CSS LƯỚI SUDOKU (Đã có viền đen chuẩn) */
         .grid { 
             display: grid; 
-            /* Quy định cứng kích thước 9 cột, mỗi cột 50px */
-            grid-template-columns: repeat(9, 50px); 
-            grid-template-rows: repeat(9, 50px);
-            border: 4px solid #000; /* Viền bao ngoài cùng màu đen đậm */
-            background: white; 
+            grid-template-columns: repeat(9, 45px); 
+            grid-template-rows: repeat(9, 45px);
+            border: 4px solid #000; /* Viền ngoài đen đậm */
+            background: #000; /* Nền đen để tạo khe hở */
+            gap: 1px; /* Khe hở 1px tạo thành đường kẻ */
         }
         
         .grid input { 
             width: 100%; height: 100%; 
-            text-align: center; font-size: 22px; 
-            outline: none; padding: 0; color: #2c3e50;
-            
-            /* QUAN TRỌNG: Giúp viền không làm vỡ kích thước ô */
-            box-sizing: border-box; 
-            border: 1px solid #bdc3c7; /* Viền mờ mặc định */
+            text-align: center; font-size: 20px; font-weight: 500;
+            border: none; outline: none; padding: 0; color: #2c3e50;
+            background-color: #fff;
         }
         
-        /* --- KẺ VIỀN ĐEN ĐẬM CHIA KHỐI 3x3 --- */
+        /* Kẻ khối 3x3 bằng margin (Cách này ổn định nhất) */
+        .grid input:nth-child(3n) { margin-right: 3px; }
+        .grid input:nth-child(9n) { margin-right: 0; }
         
-        /* 1. Kẻ vạch DỌC màu đen ở cột 3, 6 */
-        /* Cứ mỗi 3 ô thì kẻ viền phải đậm */
-        .grid input:nth-child(3n) { 
-            border-right: 3px solid #000; 
-        }
-        /* Nhưng riêng cột cuối cùng (cột 9) thì trả lại viền mờ (để không bị trùng với viền khung) */
-        .grid input:nth-child(9n) { 
-            border-right: 1px solid #bdc3c7; 
-        }
-        
-        /* 2. Kẻ vạch NGANG màu đen ở hàng 3, 6 */
-        /* Các ô từ 19-27 (Hàng 3) và 46-54 (Hàng 6) sẽ có viền dưới đậm */
         .grid input:nth-child(n+19):nth-child(-n+27), 
-        .grid input:nth-child(n+46):nth-child(-n+54) { 
-            border-bottom: 3px solid #000; 
-        }
+        .grid input:nth-child(n+46):nth-child(-n+54) { margin-bottom: 3px; }
 
-        /* --- MÀU SẮC TRẠNG THÁI --- */
-        .readonly { background: #ecf0f1; font-weight: bold; color: #2c3e50; }
-        .solved { color: #27ae60 !important; font-weight: bold; } /* Màu xanh: AI giải */
-        .wrong { background-color: #ffcccc !important; color: red !important; font-weight: bold; } /* Màu đỏ: Lỗi */
+        /* MÀU SẮC */
+        .readonly { background: #ecf0f1 !important; font-weight: bold; color: #2c3e50; }
+        .solved { color: #27ae60 !important; font-weight: bold; } 
+        .wrong { background-color: #e74c3c !important; color: white !important; } /* Sai là đỏ rực */
         
-        /* Nút bấm */
-        .controls, .buttons { margin: 15px 0; display: flex; gap: 10px; }
-        button { padding: 12px 20px; cursor: pointer; border-radius: 6px; border: none; color: white; font-weight: 600; font-size: 14px; }
+        .controls, .buttons { margin: 15px 0; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+        button { padding: 10px 20px; cursor: pointer; border-radius: 5px; border: none; color: white; font-weight: bold; }
         .btn-gen { background: #2980b9; }
         .btn-solve { background: #27ae60; }
-        .btn-check { background: #e74c3c; } 
+        .btn-check { background: #c0392b; } /* Nút check màu đỏ đô */
         .btn-clear { background: #f39c12; }
         
         .status { margin-top: 15px; font-weight: bold; color: #34495e; min-height: 20px; }
@@ -66,7 +50,7 @@
     <h1>Đồ Án AI: Sudoku Solver</h1>
     
     <div class="controls">
-        <select id="level" style="padding: 10px; border-radius: 5px;">
+        <select id="level" style="padding: 8px;">
             <option value="easy">Dễ</option>
             <option value="medium" selected>Trung Bình</option>
             <option value="hard">Khó</option>
@@ -78,8 +62,8 @@
     <div class="grid" id="grid"></div>
 
     <div class="buttons">
-        <button class="btn-clear" onclick="clearBoard()">Nhập Đề / Xóa</button>
-        <button class="btn-check" onclick="checkError()">Kiểm Tra Lỗi</button>
+        <button class="btn-clear" onclick="clearBoard()">Xóa / Nhập Lại</button>
+        <button class="btn-check" onclick="checkAnswer()">Kiểm Tra Lỗi</button>
         <button class="btn-solve" onclick="solve()">AI Giải Ngay</button>
     </div>
     
@@ -89,8 +73,9 @@
         const grid = document.getElementById('grid');
         const status = document.getElementById('status');
         const inputs = [];
+        let solution = []; // Biến này lưu "Matrix KQ" như bạn Long yêu cầu
 
-        // 1. Tạo bàn cờ 81 ô
+        // 1. Tạo bàn cờ
         for(let i=0; i<81; i++) {
             let inp = document.createElement('input');
             inp.type = "text"; inp.maxLength = 1;
@@ -102,15 +87,19 @@
             inputs.push(inp);
         }
 
-        // 2. Hàm sinh đề
+        // 2. Sinh đề và Lưu đáp án
         async function gen() {
             clearBoard();
-            status.innerText = "Đang tải đề...";
+            status.innerText = "Đang sinh đề...";
             const level = document.getElementById('level').value;
             try {
                 let res = await fetch(`/generate?level=${level}`);
                 let data = await res.json();
                 
+                // LƯU MATRIX KẾT QUẢ VÀO BIẾN (Theo đúng yêu cầu ảnh 3800.jpg)
+                solution = data.solution.flat();
+                
+                // Hiển thị đề bài
                 let board = data.board.flat();
                 board.forEach((val, i) => {
                     if(val !== 0) {
@@ -123,60 +112,40 @@
             } catch (e) { status.innerText = "Lỗi kết nối!"; }
         }
 
-        // 3. Hàm Check Lỗi Thông Minh (Check trùng)
-        function checkError() {
-            let errorCount = 0;
-            inputs.forEach(inp => inp.classList.remove('wrong'));
-
-            const getVal = (idx) => inputs[idx].value === "" ? 0 : parseInt(inputs[idx].value);
-
-            for (let i = 0; i < 81; i++) {
-                let currentVal = getVal(i);
-                if (currentVal === 0) continue;
-
-                let r = Math.floor(i / 9);
-                let c = i % 9;
-                let isDuplicate = false;
-
-                // Check Hàng
-                for (let k = 0; k < 9; k++) {
-                    let idx = r * 9 + k;
-                    if (idx !== i && getVal(idx) === currentVal) isDuplicate = true;
-                }
-                // Check Cột
-                for (let k = 0; k < 9; k++) {
-                    let idx = k * 9 + c;
-                    if (idx !== i && getVal(idx) === currentVal) isDuplicate = true;
-                }
-                // Check Khối 3x3
-                let startR = Math.floor(r / 3) * 3;
-                let startC = Math.floor(c / 3) * 3;
-                for (let rr = startR; rr < startR + 3; rr++) {
-                    for (let cc = startC; cc < startC + 3; cc++) {
-                        let idx = rr * 9 + cc;
-                        if (idx !== i && getVal(idx) === currentVal) isDuplicate = true;
+        // 3. HÀM CHECK (Theo đúng yêu cầu ảnh 3802.jpg)
+        // "Chỉ cần đối chiếu vs matrix kq đã sao lưu... Chứ kh cần kq 9 ô quanh"
+        function checkAnswer() {
+            if (solution.length === 0) return alert("Chưa có đề bài!");
+            
+            let errCount = 0;
+            inputs.forEach((inp, i) => {
+                // Chỉ check ô người dùng nhập
+                if(!inp.readOnly && inp.value !== "") {
+                    // SO SÁNH THẲNG VỚI ĐÁP ÁN
+                    if(parseInt(inp.value) !== solution[i]) {
+                        inp.classList.add('wrong');
+                        errCount++;
                     }
                 }
+            });
 
-                if (isDuplicate) {
-                    inputs[i].classList.add('wrong');
-                    errorCount++;
-                }
-            }
-
-            if (errorCount > 0) {
-                status.innerText = `Phát hiện ${errorCount} ô bị trùng (Màu đỏ)!`;
+            if (errCount > 0) {
+                status.innerText = `Bạn sai ${errCount} ô so với đáp án gốc!`;
             } else {
-                status.innerText = "Hợp lệ! Chưa phát hiện lỗi sai luật.";
+                status.innerText = "Tuyệt vời! Các số bạn điền đều chính xác.";
             }
         }
 
+        // 4. AI Giải (Fix lỗi: Bỏ qua ô người dùng nhập sai để luôn giải ra)
         async function solve() {
             let board = [], row = [];
             inputs.forEach((inp, i) => {
-                row.push(inp.value ? parseInt(inp.value) : 0);
+                // Nếu là ô nhập tay -> Coi như bằng 0 để AI tự tính lại
+                let val = inp.readOnly ? parseInt(inp.value) : 0;
+                row.push(val);
                 if((i+1)%9===0) { board.push(row); row=[]; }
             });
+            
             status.innerText = "AI đang suy nghĩ...";
             try {
                 let res = await fetch('/solve', {
@@ -184,12 +153,12 @@
                     body: JSON.stringify({board})
                 });
                 let data = await res.json();
+
                 if(data.status === 'success') {
                     data.board.flat().forEach((val, i) => {
-                        if(!inputs[i].value) {
-                            inputs[i].value = val;
-                            inputs[i].classList.add('solved');
-                        }
+                        inputs[i].value = val;
+                        inputs[i].classList.remove('wrong');
+                        if(!inputs[i].readOnly) inputs[i].classList.add('solved');
                     });
                     status.innerText = "AI đã giải xong!";
                 } else { status.innerText = "Không tìm thấy lời giải!"; }
@@ -200,6 +169,7 @@
             inputs.forEach(inp => {
                 inp.value = ''; inp.readOnly = false; inp.className = '';
             });
+            solution = [];
             status.innerText = "Sẵn sàng...";
         }
     </script>
