@@ -4,46 +4,74 @@
     <meta charset="UTF-8">
     <title>Sudoku Group Project</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; background: #f0f2f5; padding: 20px; }
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            display: flex; flex-direction: column; align-items: center; 
+            background: #f0f2f5; padding: 20px; 
+        }
         h1 { color: #2c3e50; margin-bottom: 10px; }
         
-        /* CSS LƯỚI SUDOKU (Đã có viền đen chuẩn) */
+        /* --- KHUNG LƯỚI CHÍNH --- */
         .grid { 
             display: grid; 
+            /* Cố định kích thước ô là 45px */
             grid-template-columns: repeat(9, 45px); 
             grid-template-rows: repeat(9, 45px);
-            border: 4px solid #000; /* Viền ngoài đen đậm */
-            background: #000; /* Nền đen để tạo khe hở */
-            gap: 1px; /* Khe hở 1px tạo thành đường kẻ */
+            
+            /* Viền ngoài cùng màu đen rất đậm */
+            border: 4px solid #000; 
+            background: #fff;
         }
         
         .grid input { 
             width: 100%; height: 100%; 
             text-align: center; font-size: 20px; font-weight: 500;
-            border: none; outline: none; padding: 0; color: #2c3e50;
+            outline: none; padding: 0; color: #2c3e50;
             background-color: #fff;
+            
+            /* QUAN TRỌNG: Giúp viền không làm vỡ ô */
+            box-sizing: border-box; 
+            
+            /* Viền mờ cho từng ô nhỏ */
+            border: 1px solid #bdc3c7; 
         }
         
-        /* Kẻ khối 3x3 bằng margin (Cách này ổn định nhất) */
-        .grid input:nth-child(3n) { margin-right: 3px; }
-        .grid input:nth-child(9n) { margin-right: 0; }
+        /* --- KẺ VIỀN ĐEN ĐẬM CHIA KHỐI 3x3 --- */
         
-        .grid input:nth-child(n+19):nth-child(-n+27), 
-        .grid input:nth-child(n+46):nth-child(-n+54) { margin-bottom: 3px; }
+        /* 1. Kẻ vạch DỌC màu đen (Bên phải cột 3 và 6) */
+        /* Cứ mỗi 3 ô thì kẻ viền phải màu đen */
+        .grid input:nth-child(3n) { 
+            border-right: 3px solid #000; 
+        }
+        /* Riêng cột cuối cùng (cột 9) thì bỏ viền đen đi (để không đè lên khung) */
+        .grid input:nth-child(9n) { 
+            border-right: 1px solid #bdc3c7; 
+        }
+        
+        /* 2. Kẻ vạch NGANG màu đen (Bên dưới hàng 3 và 6) */
+        /* Hàng 3 (các ô từ 19-27) */
+        .grid input:nth-child(n+19):nth-child(-n+27) { 
+            border-bottom: 3px solid #000; 
+        }
+        /* Hàng 6 (các ô từ 46-54) */
+        .grid input:nth-child(n+46):nth-child(-n+54) { 
+            border-bottom: 3px solid #000; 
+        }
 
-        /* MÀU SẮC */
+        /* --- MÀU SẮC TRẠNG THÁI --- */
         .readonly { background: #ecf0f1 !important; font-weight: bold; color: #2c3e50; }
         .solved { color: #27ae60 !important; font-weight: bold; } 
-        .wrong { background-color: #e74c3c !important; color: white !important; } /* Sai là đỏ rực */
+        .wrong { background-color: #e74c3c !important; color: white !important; } 
         
+        /* BUTTONS */
         .controls, .buttons { margin: 15px 0; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-        button { padding: 10px 20px; cursor: pointer; border-radius: 5px; border: none; color: white; font-weight: bold; }
+        button { padding: 10px 15px; cursor: pointer; border-radius: 5px; border: none; color: white; font-weight: bold; }
         .btn-gen { background: #2980b9; }
         .btn-solve { background: #27ae60; }
-        .btn-check { background: #c0392b; } /* Nút check màu đỏ đô */
+        .btn-check { background: #c0392b; }
         .btn-clear { background: #f39c12; }
         
-        .status { margin-top: 15px; font-weight: bold; color: #34495e; min-height: 20px; }
+        .status { margin-top: 15px; font-weight: bold; color: #34495e; min-height: 20px; text-align: center;}
     </style>
 </head>
 <body>
@@ -175,3 +203,4 @@
     </script>
 </body>
 </html>
+
