@@ -1,110 +1,83 @@
 from flask import Flask, render_template, request, jsonify
-import random
+import random, copy
 
 app = Flask(__name__)
 
-# --- CẤU HÌNH ĐỘ KHÓ (Dùng Dictionary) ---
-# Số lượng ô TRỐNG cần tạo ra cho mỗi cấp độ
-LEVELS = {
-    'easy': 30,     # Dễ: Đục 30 lỗ
-    'medium': 45,   # Vừa: Đục 45 lỗ
-    'hard': 55,     # Khó: Đục 55 lỗ
-    'expert': 60    # Siêu khó: Đục 60 lỗ
-}
+# Cấu hình độ khó
+LEVELS = {'easy': 30, 'medium': 45, 'hard': 55, 'expert': 60}
 
-# --- 1. CORE AI: KIỂM TRA HỢP LỆ ---
-def is_valid(board, row, col, num):
-    """Kiểm tra xem đặt số 'num' vào vị trí (row, col) có phạm luật không"""
-    # 1. Check Hàng & Cột (Gộp chung 1 vòng lặp)
+# --- LOGIC XỬ LÝ ---
+def is_valid(board, r, c, n):
+    # Check Hàng & Cột
     for i in range(9):
-        if board[row][i] == num or board[i][col] == num:
-            return False
-            
-    # 2. Check Khối 3x3
-    start_row, start_col = 3 * (row // 3), 3 * (col // 3)
+        if board[r][i] == n or board[i][c] == n: return False
+    # Check Khối 3x3
+    sr, sc = 3 * (r // 3), 3 * (c // 3)
     for i in range(3):
         for j in range(3):
-            if board[start_row + i][start_col + j] == num:
+            if board[sr+i][sc+j] == n: return False
+    return True
+
+def solve(board):
+    for r in range(9):
+        for c in range(9):
+            if board[r][c] == 0:
+                for n in range(1, 10):
+                    if is_valid(board, r, c, n):
+                        board[r][c] = n
+                        if solve(board): return True
+                        board[r][c] = 0
                 return False
     return True
 
-# --- 2. CORE AI: THUẬT TOÁN QUAY LUI (BACKTRACKING) ---
-def solve_sudoku(board):
-    """Hàm đệ quy tìm lời giải"""
-    for row in range(9):
-        for col in range(9):
-            if board[row][col] == 0:  # Tìm thấy ô trống
-                for num in range(1, 10): # Thử số 1->9
-                    if is_valid(board, row, col, num):
-                        board[row][col] = num  # 1. Thử điền
-                        
-                        if solve_sudoku(board): # 2. Đệ quy giải tiếp
-                            return True
-                        
-                        board[row][col] = 0    # 3. Sai thì Quay lui (Backtrack)
-                return False # Thử hết 1-9 mà không được -> Vô nghiệm nhánh này
-    return True # Không còn ô trống nào -> Đã giải xong
-
-# --- 3. HỖ TRỢ: SINH ĐỀ & VALIDATE ĐẦU VÀO ---
-def validate_input(board):
-    """Kiểm tra đề bài người dùng nhập có bị trùng lặp không"""
+def validate(board):
     for r in range(9):
         for c in range(9):
             if board[r][c] != 0:
-                num = board[r][c]
-                board[r][c] = 0 # Nhấc quân cờ ra tạm thời
-                if not is_valid(board, r, c, num):
-                    return False # Nếu đặt lại mà sai -> Đề bài lỗi
-                board[r][c] = num # Đặt lại chỗ cũ
+                n = board[r][c]
+                board[r][c] = 0
+                if not is_valid(board, r, c, n): return False
+                board[r][c] = n
     return True
 
-def create_puzzle(level_name):
-    """Tạo đề bài mới theo độ khó"""
-    # Bước 1: Tạo bảng trắng
+def create_puzzle(level):
     board = [[0]*9 for _ in range(9)]
-    
-    # Bước 2: Điền ngẫu nhiên đường chéo (để tạo hạt giống khác nhau)
-    for i in range(0, 9, 3):
+    # Tạo hạt giống ngẫu nhiên
+    for k in range(0, 9, 3):
         nums = list(range(1, 10))
         random.shuffle(nums)
-        for j in range(3):
-            for k in range(3):
-                board[i+j][i+k] = nums.pop()
-                
-    # Bước 3: Giải ra bảng full
-    solve_sudoku(board)
+        for i in range(3):
+            for j in range(3):
+                board[k+i][k+j] = nums.pop()
     
-    # Bước 4: Đục lỗ (Xóa bớt số)
-    holes_to_make = LEVELS.get(level_name, 45) # Lấy số lỗ từ Dictionary
-    while holes_to_make > 0:
+    solve(board)
+    solution = copy.deepcopy(board) # Lưu đáp án
+    
+    # Đục lỗ
+    holes = LEVELS.get(level, 45)
+    while holes > 0:
         r, c = random.randint(0, 8), random.randint(0, 8)
         if board[r][c] != 0:
             board[r][c] = 0
-            holes_to_make -= 1
-    return board
+            holes -= 1
+    return board, solution
 
-# --- 4. FLASK SERVER ---
+# --- SERVER ---
 @app.route('/')
-def home():
-    return render_template('index.html')
+def home(): return render_template('index.html')
 
 @app.route('/solve', methods=['POST'])
 def api_solve():
-    data = request.json
-    board = data.get('board')
-    
-    if not validate_input(board):
-        return jsonify({'status': 'fail', 'message': 'Đề bài bị trùng số!'})
-        
-    if solve_sudoku(board):
-        return jsonify({'status': 'success', 'board': board})
-    return jsonify({'status': 'fail', 'message': 'Vô nghiệm!'})
+    board = request.json.get('board')
+    if not validate(board): return jsonify({'status': 'fail'})
+    if solve(board): return jsonify({'status': 'success', 'board': board})
+    return jsonify({'status': 'fail'})
 
-@app.route('/generate', methods=['GET'])
-def api_generate():
+@app.route('/generate')
+def api_gen():
     level = request.args.get('level', 'medium')
-    new_board = create_puzzle(level)
-    return jsonify({'status': 'success', 'board': new_board})
+    board, solution = create_puzzle(level)
+    return jsonify({'status': 'success', 'board': board, 'solution': solution})
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True)
