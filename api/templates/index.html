@@ -162,8 +162,10 @@
         }
 
         // 4. AI GIẢI (NÂNG CẤP: Hỗ trợ cả Game Mode và Solver Mode)
+        // ... (Phần trên giữ nguyên)
+
         async function solve() {
-            // TRƯỜNG HỢP 1: Đang chơi Game (Có đáp án gốc) -> Điền luôn cho nhanh
+            // TRƯỜNG HỢP 1: Game Mode (Có đáp án gốc)
             if (solution.length > 0) {
                 inputs.forEach((inp, i) => {
                     inp.value = solution[i];
@@ -174,7 +176,7 @@
                 return;
             }
 
-            // TRƯỜNG HỢP 2: Tự nhập đề (Chưa có đáp án) -> Gọi Server giải
+            // TRƯỜNG HỢP 2: Solver Mode (Tự nhập)
             let board = [], row = [];
             inputs.forEach((inp, i) => {
                 let val = inp.value ? parseInt(inp.value) : 0;
@@ -182,7 +184,7 @@
                 if((i+1)%9===0) { board.push(row); row=[]; }
             });
             
-            status.innerText = "AI đang tính toán (Chế độ tự nhập)...";
+            status.innerText = "AI đang tính toán...";
             try {
                 let res = await fetch('/solve', {
                     method:'POST', headers:{'Content-Type':'application/json'},
@@ -196,8 +198,12 @@
                         inputs[i].classList.add('solved');
                     });
                     status.innerText = "AI đã tìm ra lời giải!";
+                } else if (data.status === 'invalid') {
+                    // XỬ LÝ KHI ĐỀ BÀI BỊ TRÙNG
+                    status.innerText = "Lỗi: Đề bài bạn nhập bị trùng số (sai luật)!";
+                    alert("Đề bài không hợp lệ! Vui lòng kiểm tra lại các số trùng nhau.");
                 } else {
-                    status.innerText = "Vô nghiệm! Bạn kiểm tra lại đề bài xem.";
+                    status.innerText = "Vô nghiệm! Không tìm thấy lời giải.";
                 }
             } catch (e) { status.innerText = "Lỗi kết nối!"; }
         }
@@ -212,6 +218,7 @@
     </script>
 </body>
 </html>
+
 
 
 
